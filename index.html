@@ -1,0 +1,907 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<title>Академия Юного Горожанина 3D: ПДД, Безопасность и Финансы</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;user-select:none;-webkit-user-select:none;font-family:'Segoe UI',Roboto,Arial,sans-serif}
+body,html{width:100%;height:100%;overflow:hidden;background:#0ea5e9;color:#f8fafc;touch-action:none}
+#game-canvas,#fallback-2d{position:fixed;inset:0;width:100%;height:100%;display:block;z-index:1}
+#fallback-2d{display:none;background:#e0f2fe}
+.hud{position:fixed;z-index:10;background:rgba(15,23,42,.88);backdrop-filter:blur(8px);border:2px solid rgba(56,189,248,.45);border-radius:14px;padding:9px 12px;box-shadow:0 6px 24px rgba(0,0,0,.35)}
+#tl{top:10px;left:10px;min-width:225px;display:flex;flex-direction:column;gap:4px}
+.row{display:flex;justify-content:space-between;font-size:12.5px;font-weight:700}.lbl{color:#bae6fd}.val{font-family:monospace;color:#fde047}
+.bar{width:100%;height:6px;background:#1e293b;border-radius:4px;overflow:hidden}.fill{height:100%;transition:width .2s}
+#tr{top:10px;right:10px;display:flex;flex-direction:column;align-items:flex-end;gap:5px;max-width:56vw}
+#tr.collapsed .btns,#tr.collapsed .hint{display:none}
+.btns{display:flex;flex-wrap:wrap;gap:5px;justify-content:flex-end}
+.btn{background:linear-gradient(135deg,#0284c7,#0369a1);color:#fff;border:1px solid rgba(255,255,255,.25);padding:6px 10px;border-radius:9px;font-size:12px;font-weight:700;cursor:pointer}
+.btn:hover{filter:brightness(1.12)}.btn:disabled{opacity:.45;cursor:default}
+.b-ok{background:linear-gradient(135deg,#16a34a,#15803d)}.b-warn{background:linear-gradient(135deg,#f59e0b,#d97706)}.b-purp{background:linear-gradient(135deg,#9333ea,#7e22ce)}.b-pink{background:linear-gradient(135deg,#ec4899,#db2777)}.b-red{background:linear-gradient(135deg,#ef4444,#dc2626)}
+#mid{top:10px;left:50%;transform:translateX(-50%);display:flex;gap:10px;align-items:center;padding:6px 14px}
+#tl-bulb{display:flex;gap:5px;background:#020617;padding:4px 8px;border-radius:10px;border:1px solid #334155}
+.bulb{width:13px;height:13px;border-radius:50%;opacity:.25;transition:opacity .2s}.bulb.on{opacity:1;box-shadow:0 0 10px currentColor}
+#mm-box{bottom:10px;right:10px;padding:4px;border-radius:50%;width:128px;height:128px}
+#minimap{width:118px;height:118px;border-radius:50%;background:#0f172a}
+#quest-box{bottom:10px;left:10px;max-width:290px;border-left:4px solid #4ade80;font-size:12px}
+#prompt{position:fixed;bottom:23%;left:50%;transform:translateX(-50%);z-index:40;background:rgba(15,23,42,.95);border:2px solid #fde047;padding:8px 18px;border-radius:24px;font-weight:700;font-size:13px;display:none;gap:8px;align-items:center;cursor:pointer}
+#toasts{position:fixed;top:72px;left:50%;transform:translateX(-50%);z-index:200;display:flex;flex-direction:column;gap:5px;pointer-events:none}
+.toast{background:rgba(15,23,42,.96);border-left:4px solid #fde047;padding:8px 15px;border-radius:8px;font-size:12.5px;font-weight:700;max-width:90vw}
+.modal-bg{position:fixed;inset:0;background:rgba(2,6,23,.82);backdrop-filter:blur(5px);display:none;justify-content:center;align-items:center;z-index:100;padding:10px}
+.modal{background:#0f172a;border:2px solid rgba(56,189,248,.5);border-radius:16px;width:100%;max-width:760px;max-height:86vh;display:flex;flex-direction:column;overflow:hidden}
+.m-head{padding:12px 16px;background:#1e293b;display:flex;justify-content:space-between;align-items:center;font-weight:800;color:#fde047}
+.m-body{padding:14px;overflow-y:auto;display:flex;flex-direction:column;gap:10px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(205px,1fr));gap:9px}
+.card{background:#1e293b;border:1px solid rgba(255,255,255,.12);border-radius:11px;padding:10px;display:flex;flex-direction:column;justify-content:space-between;gap:6px}
+.card.act{border-color:#4ade80;box-shadow:0 0 12px rgba(74,222,128,.25)}
+.card h4{font-size:13.5px;color:#fff}.card p{font-size:11.5px;color:#cbd5e1;line-height:1.35}
+input{background:#020617;border:1px solid #38bdf8;color:#fff;padding:7px 9px;border-radius:7px;font-size:12.5px;user-select:text;-webkit-user-select:text}
+#mob{display:none;position:fixed;bottom:14px;left:14px;right:14px;justify-content:space-between;align-items:flex-end;z-index:35;pointer-events:none}
+#joy{width:116px;height:116px;border-radius:50%;background:rgba(15,23,42,.65);border:2px solid rgba(56,189,248,.55);position:relative;pointer-events:auto;touch-action:none}
+#stick{width:46px;height:46px;border-radius:50%;background:#38bdf8;border:2px solid #fff;position:absolute;top:33px;left:33px;pointer-events:none}
+.pads{display:grid;grid-template-columns:repeat(2,54px);gap:8px;pointer-events:auto;margin-right:95px}
+.tbtn{height:54px;width:54px;border-radius:14px;background:rgba(15,23,42,.85);border:2px solid rgba(56,189,248,.6);color:#fff;font-size:11px;font-weight:700;display:flex;flex-direction:column;align-items:center;justify-content:center}
+@media(max-width:850px),(pointer:coarse){#mob{display:flex}#quest-box{bottom:142px;max-width:210px}#mid{top:auto;bottom:142px;right:10px;left:auto;transform:none}#mm-box{width:88px;height:88px}#minimap{width:78px;height:78px}}
+</style>
+</head>
+<body>
+<canvas id="game-canvas"></canvas>
+<canvas id="fallback-2d"></canvas>
+
+<div id="tl" class="hud">
+    <div class="row"><span class="lbl">🪙 Копилка (Нал.):</span><span class="val" style="color:#4ade80" id="h-cash">150 🪙</span></div>
+    <div class="row"><span class="lbl">🏦 Сберсчёт (+%):</span><span class="val" style="color:#fde047" id="h-bank">200 🪙</span></div>
+    <div class="row"><span class="lbl">🎯 Цель (Самокат):</span><span class="val" style="color:#c084fc" id="h-goal">350 / 1000 🪙</span></div>
+    <div class="row"><span class="lbl">🏅 Значки / Ур.:</span><span class="val" id="h-lvl">100 (Ур. 1)</span></div>
+    <div><div class="row" style="font-size:10.5px"><span class="lbl">🛡️ Осторожность (ПДД)</span><span id="h-hp">100%</span></div><div class="bar"><div id="b-hp" class="fill" style="background:#4ade80;width:100%"></div></div></div>
+    <div><div class="row" style="font-size:10.5px"><span class="lbl">⚡ Бодрость</span><span id="h-en">100%</span></div><div class="bar"><div id="b-en" class="fill" style="background:#f59e0b;width:100%"></div></div></div>
+    <div><div class="row" style="font-size:10.5px"><span class="lbl">🍎 Сытость</span><span id="h-hu">100%</span></div><div class="bar"><div id="b-hu" class="fill" style="background:#38bdf8;width:100%"></div></div></div>
+    <div class="row" style="font-size:11px"><span class="lbl">⚠️ Предупреждений:</span><span class="val" style="color:#f87171" id="h-warn">0 / 3</span></div>
+    <div class="row" style="font-size:11px"><span class="lbl">🎓 <span id="h-job" style="color:#fff">Юный Ученик</span></span><span id="h-mode-tag" style="color:#4ade80;font-size:10px">3D Мир</span></div>
+    <div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:2px">
+        <button class="btn" style="padding:3px 6px;font-size:10px" onclick="openM('acc')" id="h-acc">👤 Профиль</button>
+        <button class="btn b-warn" style="padding:3px 6px;font-size:10px" onclick="toggle2DFallback()">🗺️ 2D/3D</button>
+        <button class="btn b-ok" style="padding:3px 6px;font-size:10px" onclick="unstuck()">🆘 В парк</button>
+    </div>
+</div>
+
+<div id="mid" class="hud">
+    <div><div style="font-size:18px;font-weight:800;font-family:monospace;color:#fde047" id="h-spd">0.0</div><div style="font-size:9px;color:#bae6fd">КМ/Ч</div></div>
+    <div style="border-left:1px solid #334155;padding-left:8px;font-size:10.5px">
+        <div id="tl-bulb" title="Светофор на перекрёстках">
+            <span class="bulb" id="b-red" style="background:#ef4444;color:#ef4444"></span>
+            <span class="bulb" id="b-yel" style="background:#facc15;color:#facc15"></span>
+            <span class="bulb" id="b-grn" style="background:#4ade80;color:#4ade80"></span>
+        </div>
+        <div id="tl-txt" style="color:#4ade80;font-weight:700;margin-top:2px">Иди на зелёный!</div>
+    </div>
+</div>
+
+<div id="tr" class="hud">
+    <button class="btn" style="background:#1e293b;border-color:#fde047;color:#fde047" onclick="$('tr').classList.toggle('collapsed');this.innerText=$('tr').classList.contains('collapsed')?'☰ Открыть меню':'👁️ Скрыть меню'">👁️ Скрыть меню</button>
+    <div class="btns">
+        <button class="btn b-warn" onclick="openM('quiz','pdd')">🚦 Школа ПДД и Правил</button>
+        <button class="btn b-ok" onclick="openM('jobs')">🧹 Помощь Городу (Работа)</button>
+        <button class="btn b-purp" onclick="openM('bank')">🐷 Умная Копилка</button>
+        <button class="btn" onclick="openM('shop','skins')">🎒 Гардероб и Зверята</button>
+        <button class="btn" style="background:#0d9488" onclick="openM('home')">🏡 Мой Домик (3D)</button>
+        <button class="btn b-pink" onclick="openM('arcade')">🧩 Игротека Ума</button>
+        <button class="btn b-pink" onclick="openM('promo')">🎁 Бонус-коды</button>
+        <button class="btn" onclick="openM('inv')">🍎 Рюкзак</button>
+        <button class="btn" style="background:#2563eb" onclick="openM('top')">🏆 Доска Почёта</button>
+    </div>
+    <div class="hint" style="font-size:9.5px;color:#94a3b8">WASD — ход | Space — прыжок | E — разговор / вход | F — веломобиль</div>
+</div>
+
+<div id="quest-box" class="hud">
+    <div style="color:#fde047;font-weight:800;font-size:10.5px;text-transform:uppercase">🌟 Задание Юного Горожанина</div>
+    <div id="q-text" style="margin-top:2px;color:#f8fafc">Перейди дорогу по зебре на зелёный свет и отнеси письмо на почту!</div>
+</div>
+
+<div id="mm-box" class="hud"><canvas id="minimap" width="118" height="118"></canvas></div>
+<div id="prompt" onclick="doInteract()"><span style="background:#fde047;color:#0f172a;padding:1px 6px;border-radius:4px">E</span><span id="p-txt">Действие</span></div>
+<div id="toasts"></div>
+
+<div id="mob">
+    <div id="joy"><div id="stick"></div></div>
+    <div class="pads">
+        <button class="tbtn" style="border-color:#fde047;color:#fde047" onclick="openM('quiz','pdd')">🚦<span>ПДД</span></button>
+        <button class="tbtn" style="border-color:#4ade80;color:#4ade80" onclick="doInteract()">⚡<span>Вход E</span></button>
+        <button class="tbtn" ontouchstart="keys.Space=true" ontouchend="keys.Space=false">⬆️<span>Прыжок</span></button>
+        <button class="tbtn" style="border-color:#38bdf8" onclick="toggleCar()">🚲<span>Вело F</span></button>
+    </div>
+</div>
+
+<div id="m-bg" class="modal-bg" onclick="if(event.target===this&&!violationLock)closeM()">
+    <div class="modal"><div class="m-head"><span id="m-title">Меню</span><button id="m-close" style="background:none;border:none;color:#94a3b8;font-size:24px;cursor:pointer" onclick="if(!violationLock)closeM()">&times;</button></div><div class="m-body" id="m-body"></div></div>
+</div>
+
+<script>
+const $=id=>document.getElementById(id),CLOUD='https://keyvalue.immanuel.co/api/KeyVal',PREFIX='kids3d_v2_';
+const store={get:k=>{try{return localStorage.getItem(k)}catch{return null}},set:(k,v)=>{try{localStorage.setItem(k,v)}catch{}},del:k=>{try{localStorage.removeItem(k)}catch{}}};
+
+const defState={
+    cash:150,bank:200,goal:1000,goalName:'Электросамокат Молния',score:100,safety:100,energy:100,hunger:100,warnings:0,bikeLock:false,
+    jobId:'student',xp:0,pddPassed:[],badges:[],
+    skin:'kid_blue',skins:['kid_blue'],pet:null,pets:[],car:'bike',cars:['bike'],carColor:'#38bdf8',
+    house:null,houses:[],promos:[],inv:[{id:'apple',name:'Сочное Яблоко',cnt:2,en:25,hu:30,desc:'+25% бодрости, +30% сытости'}],
+    pos:{x:0,z:12},cPos:{x:6,z:12,rot:0},time:11,distKm:0,qIdx:0
+};
+let st=JSON.parse(JSON.stringify(defState)),acc=null,cloudOk=false,use2D=false,violationLock=false;
+
+// Kid-friendly Skins, Pets, Eco-Transport & Houses
+const SKINS=[
+    {id:'kid_blue',n:'Школьник',r:'Старт',p:0,s:'#f1c27d',c:'#38bdf8',pt:'#1e3a8a',acc:'cap',spd:1,pay:1},
+    {id:'scout',n:'Юный Следопыт',r:'Обычный',p:180,s:'#f1c27d',c:'#22c55e',pt:'#14532d',acc:'cap',spd:1.08,pay:1.1},
+    {id:'patrol',n:'Юный Инспектор ПДД',r:'За экзамен',p:-1,s:'#f1c27d',c:'#facc15',pt:'#0f172a',acc:'visor',aura:'#4ade80',spd:1.15,pay:1.25},
+    {id:'eco',n:'Эко-Герой',r:'Редкий',p:450,s:'#e0ac69',c:'#10b981',pt:'#064e3b',acc:'glasses',aura:'#34d399',spd:1.15,pay:1.2},
+    {id:'astro',n:'Юный Космонавт',r:'Эпик',p:900,s:'#f1c27d',c:'#f8fafc',pt:'#cbd5e1',acc:'crown',aura:'#38bdf8',spd:1.22,pay:1.3},
+    {id:'wizard',n:'Хранитель Знаний',r:'Легенда',p:1800,s:'#fde047',c:'#9333ea',pt:'#4c1d95',acc:'crown',aura:'#facc15',spd:1.28,pay:1.4}
+];
+const PROMOS={
+    PDD2026:{cash:200,score:100,xp:40,d:'+200 монет, +100 значков, +40 опыта'},
+    UMKA3D:{cash:300,score:150,d:'+300 монет в копилку и +150 значков'},
+    HERO2026:{skin:'eco',cash:150,d:'Костюм «Эко-Герой» + 150 монет'}
+};
+const JOBS=[
+    {id:'student',t:'Юный Ученик',pay:0,xp:0,en:0,d:'Изучай правила города и зарабатывай первые монеты.'},
+    {id:'eco_help',t:'Помощник Эко-Парка',pay:65,xp:0,en:12,d:'Полив цветов и сортировка бумажек в парке.'},
+    {id:'postman',t:'Почтальон Добра',pay:110,xp:30,en:15,d:'Разнос писем и открыток по зелёным маркерам.'},
+    {id:'pdd_tutor',t:'Наставник ПДД',pay:185,xp:80,en:18,d:'Помощь малышам правильно переходить дорогу.'},
+    {id:'inventor',t:'Юный Изобретатель',pay:310,xp:160,en:22,d:'Создание умных роботов в Техно-Центре.'}
+];
+const PETS=[
+    {id:'puppy',n:'Щенок Дружок',p:250,c:'#d97706',b:'+15% значков за добрые дела'},
+    {id:'kitten',n:'Котёнок Мурзик',p:450,c:'#f8fafc',b:'+20% бодрости от перекуса'},
+    {id:'owl',n:'Совёнок Умник',p:800,c:'#8b5cf6',b:'+25% монет за правильные ответы'}
+];
+const CARS=[
+    {id:'bike',n:'Велосипед «Ветерок»',p:0,spd:28,acc:16,c:'#38bdf8'},
+    {id:'scooter',n:'Электросамокат «Молния»',p:600,spd:42,acc:24,c:'#facc15'},
+    {id:'ecocar',n:'Эко-Мобиль «Солнышко»',p:1500,spd:58,acc:30,c:'#4ade80'}
+];
+const HOUSES=[
+    {id:'treehouse',n:'Домик на Дереве',p:500,x:-74,z:74,ix:500,iz:300,col:0x4ade80,b:'Уютный штаб с телескопом и отдыхом 100%'},
+    {id:'smartflat',n:'Умная Квартира',p:1200,x:-44,z:-16,ix:500,iz:400,col:0x38bdf8,b:'Своя комната, библиотека и +10% к наградам'},
+    {id:'ecovilla',n:'Эко-Коттедж «Радуга»',p:2800,x:74,z:-74,ix:500,iz:500,col:0xfacc15,b:'Большой дом с садом и +20% к монетам'}
+];
+const ITEMS=[
+    {id:'apple',n:'Сочное Яблоко',p:15,en:25,hu:30,d:'+25% бодрости, +30% сытости'},
+    {id:'juice',n:'Витаминный Сок',p:25,en:40,hu:15,d:'+40% бодрости, +15% сытости'},
+    {id:'helmet',n:'Шлем Безопасности',p:80,sf:50,d:'+50% к шкале Осторожности'},
+    {id:'lunch',n:'Полезный Обед',p:45,en:50,hu:65,d:'+50% бодрости, +65% сытости'}
+];
+
+// Educational Interactive Lessons & Quizzes (ПДД, Улица, Экономика, Экология)
+const LESSONS={
+    pdd:{
+        title:'🚦 Правила Дорожного Движения (ПДД)',
+        rule:'Переходи дорогу ТОЛЬКО по пешеходному переходу («зебре») и ТОЛЬКО на зелёный сигнал светофора. Перед шагом посмотри налево, потом направо! На велосипеде или самокате по зебре нужно идти пешком.',
+        qs:[
+            {q:'На какой сигнал светофора пешеходу разрешено переходить дорогу?',opts:['На красный','На жёлтый','Только на зелёный, убедившись что машины остановились'],ok:2,exp:'Зелёный свет разрешает переход, но всегда нужно убедиться, что все водители тебя видят и остановились!'},
+            {q:'Как правильно переходить дорогу с велосипедом или самокатом?',opts:['Быстро проехать по зебре','Спешиться (слезть) и везти транспорт рядом за руль','Проехать на заднем колесе'],ok:1,exp:'По пешеходному переходу нужно идти пешком и вести велосипед или самокат рядом!'},
+            {q:'Что означает синий круглый знак с белым пешеходом?',opts:['Пешеходная дорожка (движение разрешено только пешеходам)','Осторожно, дети','Подземный переход'],ok:0,exp:'Синий круглый знак предписывает: здесь разрешено ходить только пешеходам.'}
+        ]
+    },
+    street:{
+        title:'🛡️ Безопасность на улице и с незнакомцами',
+        rule:'Никогда не уходи с незнакомыми людьми, не садись в чужие машины и не бери угощения от посторонних. Если потерялся — обратись к полицейскому, продавцу в магазине или позвони родителям.',
+        qs:[
+            {q:'Незнакомый взрослый предлагает подвезти тебя до дома или показать котят. Твои действия?',opts:['Согласиться, если он улыбается','Твёрдо сказать «Нет!», отойти в людное место и позвонить родителям','Пойти с ним ненадолго'],ok:1,exp:'Правило трёх «Н»: Никогда, Никуда, Ни с кем из незнакомцев не уходить!'},
+            {q:'Что делать, если ты потерялся в большом торговом центре или на улице?',opts:['Убежать в тёмный двор','Оставаться на месте или обратиться к охраннику / полицейскому / кассиру','Попросить незнакомца отвезти тебя'],ok:1,exp:'Люди в форме (полицейские, охранники, сотрудники магазина) помогут безопасно связаться с родителями.'},
+            {q:'Можно ли играть рядом с проезжей частью или на строительной площадке?',opts:['Да, если рядом нет машин','Нет, играть можно только на детских площадках и в парках','Можно, если быстро убегать'],ok:1,exp:'Дорога и стройка — зоны повышенной опасности, для игр предназначены только парки и дворы.'}
+        ]
+    },
+    econ:{
+        title:'🐷 Умная Экономика и Финансовая Грамотность',
+        rule:'Деньги зарабатываются трудом и знаниями. Разделяй покупки на «Нужное» (еда, учебники, безопасность) и «Желаемое» (игрушки). Откладывая часть монет в копилку или банк, ты быстрее накопишь на большую мечту!',
+        qs:[
+            {q:'У тебя есть 100 монет, а ты мечтаешь о самокате за 600 монет. Как поступить разумнее?',opts:['Сразу потратить всё на сладости','Откладывать часть монет в Умную Копилку под процент и выполнять задания','Потерять монеты'],ok:1,exp:'Планирование бюджета и сбережения помогают достигать крупных целей без долгов!'},
+            {q:'Что такое «Семейный бюджет»?',opts:['Коробка с игрушками','План доходов (зарплата) и расходов (покупки, счета) семьи','Только деньги на развлечения'],ok:1,exp:'Бюджет помогает распределять доходы так, чтобы хватало на всё необходимое и оставалось на сбережения.'},
+            {q:'Зачем люди хранят сбережения на банковском счёте?',opts:['Чтобы банк начислял небольшой процент и деньги были в безопасности','Чтобы сразу их потратить','Чтобы они исчезли'],ok:0,exp:'В банке сбережения защищены от потери и потихоньку растут за счёт процентов.'}
+        ]
+    },
+    eco:{
+        title:'🌱 Экология и Культура Поведения',
+        rule:'Береги природу родного города: не бросай мусор мимо урны, сортируй пластик и бумагу, не ломай ветки деревьев и помогай старшим и животным.',
+        qs:[
+            {q:'Ты съел мороженое в парке, а урны рядом нет. Что нужно сделать с обёрткой?',opts:['Бросить в кусты','Положить в карман или рюкзак и донести до ближайшей урны','Спрятать под скамейку'],ok:1,exp:'Чистота города начинается с каждого из нас! Мусор нужно выбрасывать только в урну.'},
+            {q:'Почему батарейки нельзя выбрасывать в обычное мусорное ведро?',opts:['Они слишком тяжёлые','Они содержат вредные вещества и сдаются в специальные пункты переработки','Из них делают конфеты'],ok:1,exp:'Одна батарейка может загрязнить почву и воду, поэтому их сдают в эко-боксы.'}
+        ]
+    }
+};
+
+// Consequences for Rule Violations (Educational Penalty + On-the-spot PDD Mini-Lesson)
+const VIOLATIONS={
+    red_light:{
+        title:'🚦 Нарушение ПДД: Переход дороги на красный свет!',
+        msg:'Инспектор Светофоров остановил тебя: переходить дорогу на красный сигнал светофора очень опасно! Выписан учебный штраф -25 монет и -15% Осторожности.',
+        fine:25,
+        q:'Закрепи правило: Что нужно сделать, если загорелся красный свет светофора?',
+        opts:['Быстро перебежать дорогу','Остановиться на тротуаре и дождаться зелёного сигнала','Пойти спиной вперёд'],
+        ok:1
+    },
+    jaywalk:{
+        title:'🦓 Нарушение ПДД: Переход дороги вне пешеходного перехода!',
+        msg:'Инспектор Светофоров напоминает: дорогу можно переходить только по белой «зебре» на перекрёстках! Выписан учебный штраф -20 монет и -10% Осторожности.',
+        fine:20,
+        q:'Закрепи правило: Где пешеходам разрешено переходить проезжую часть?',
+        opts:['В любом месте, если бежать быстро','Только по пешеходному переходу («зебре») или подземному переходу','Из-за припаркованных машин'],
+        ok:1
+    },
+    bike_zebra:{
+        title:'🚲 Нарушение ПДД: Переезд зебры верхом на транспорте!',
+        msg:'Инспектор Светофоров напоминает: перед пешеходным переходом нужно спешиться (нажать F) и везти велосипед или самокат рядом! Учебный штраф -20 монет.',
+        fine:20,
+        q:'Закрепи правило: Как велосипедист или самокатчик должен пересекать «зебру»?',
+        opts:['Не снижая скорости верхом','Слезая с транспорта и ведя его рядом за руль пешком','На одном колесе'],
+        ok:1
+    },
+    bump_ped:{
+        title:'⚠️ Нарушение безопасности: Опасная езда рядом с пешеходами!',
+        msg:'На тротуаре и рядом с прохожими нужно ехать осторожно и уступать дорогу пешеходам! Учебный штраф -30 монет и -15% Осторожности.',
+        fine:30,
+        q:'Закрепи правило: Кто имеет преимущество в жилой зоне и на пешеходных дорожках?',
+        opts:['Тот, кто едет быстрее','Пешеходы всегда имеют преимущество','Никто'],
+        ok:1
+    }
+};
+
+function triggerViolation(type){
+    if(violationLock||curInterior)return;
+    const v=VIOLATIONS[type];if(!v)return;
+    violationLock=true;phys.cSpd=0;
+    const actualFine=Math.min(Math.floor(st.cash),v.fine);
+    st.cash=Math.max(0,st.cash-actualFine);
+    st.safety=Math.max(10,st.safety-15);
+    st.warnings++;
+    if(st.warnings>=3){
+        st.warnings=0;st.bikeLock=true;phys.inCar=false;
+        if(pGrp){pGrp.visible=true;pGrp.position.set(0,0,12)}
+    }
+    save();updHUD();
+    curM='violation';$('m-bg').style.display='flex';$('m-close').style.display='none';
+    $('m-title').innerText=v.title;
+    $('m-body').innerHTML=`
+        <div class="card" style="border-color:#ef4444;background:rgba(127,29,29,.35)">
+            <h4>👮 Постовой Инспектор Светофоров остановил вас!</h4>
+            <p>${v.msg}</p>
+            ${st.bikeLock?'<p style="color:#fde047;font-weight:700;margin-top:4px">🔒 За 3 нарушения подряд ваш транспорт временно отправлен на штрафстоянку Академии (сдайте 1 экзамен в «Школе ПДД», чтобы вернуть ключи)!</p>':''}
+        </div>
+        <div class="card act">
+            <h4>📝 Чтобы продолжить путь, ответь правильно на вопрос инспектора:</h4>
+            <p style="font-size:13px;color:#fff;font-weight:700">${v.q}</p>
+            <div style="display:flex;flex-direction:column;gap:6px;margin-top:6px">
+                ${v.opts.map((o,i)=>`<button class="btn" style="text-align:left;padding:9px 12px" onclick="resolveViolation('${type}',${i})">${i+1}. ${o}</button>`).join('')}
+            </div>
+        </div>`;
+}
+
+function resolveViolation(type,ansIdx){
+    const v=VIOLATIONS[type];
+    if(ansIdx===v.ok){
+        violationLock=false;$('m-close').style.display='block';
+        st.safety=Math.min(100,st.safety+10);
+        // Move player safely back to sidewalk
+        if(!use2D&&pGrp){pGrp.position.set(0,0,12);st.pos={x:0,z:12}}
+        save();updHUD();closeM();
+        toast('✅ Молодец! Ты усвоил правило. Будь внимательнее на дороге!');
+    }else{
+        toast('❌ Неверно! Подумай ещё раз и выбери безопасный вариант.');
+    }
+}
+
+const QUESTS=[
+    {t:'Пройди 1 тест в «Школе ПДД и Правил»',chk:()=>st.pddPassed.length>=1,rew:120,xp:40},
+    {t:'Накопи 400 монет наличными или в Умной Копилке',chk:()=>(st.cash+st.bank)>=400,rew:180,xp:60},
+    {t:'Сдай 3 разных теста по правилам города (получи форму Инспектора!)',chk:()=>st.pddPassed.length>=3,rew:300,xp:100,skin:'patrol'},
+    {t:'Купи свой первый 3D-домик или электросамокат',chk:()=>st.houses.length>0||st.cars.length>1,rew:500,xp:150}
+];
+
+// Traffic Light State (Green -> Yellow -> Red)
+let tlPhase='green',tlTimer=10;
+setInterval(()=>{
+    tlTimer--;
+    if(tlTimer<=0){
+        if(tlPhase==='green'){tlPhase='yellow';tlTimer=3}
+        else if(tlPhase==='yellow'){tlPhase='red';tlTimer=8}
+        else{tlPhase='green';tlTimer=10}
+    }
+    $('b-red').className='bulb'+(tlPhase==='red'?' on':'');
+    $('b-yel').className='bulb'+(tlPhase==='yellow'?' on':'');
+    $('b-grn').className='bulb'+(tlPhase==='green'?' on':'');
+    const txt=$('tl-txt');
+    if(tlPhase==='green'){txt.innerText=`Зелёный (${tlTimer}с) — Можно идти!`;txt.style.color='#4ade80'}
+    else if(tlPhase==='yellow'){txt.innerText=`Жёлтый (${tlTimer}с) — Приготовься!`;txt.style.color='#facc15'}
+    else{txt.innerText=`Красный (${tlTimer}с) — СТОЙ!`;txt.style.color='#f87171'}
+    if(tlLights)tlLights.forEach(l=>l.material.color.setHex(tlPhase==='green'?0x4ade80:(tlPhase==='yellow'?0xfacc15:0xef4444)));
+    // Bank interest for kids
+    if(st.bank>0)st.bank=+(st.bank*1.005).toFixed(2);
+    updHUD();
+},1000);
+
+let lastCloudSync=0,cloudBusy=false;
+async function cGet(u){const r=await fetch(`${CLOUD}/GetValue/${PREFIX+u.toLowerCase()}/p`,{cache:'no-store'});const j=await r.json();return(!j||j==='null')?null:(typeof j==='string'?JSON.parse(j):j)}
+async function cSet(u,pw,data){return(await fetch(`${CLOUD}/UpdateValue/${PREFIX+u.toLowerCase()}/p/${encodeURIComponent(JSON.stringify({pw,data,t:Date.now()}))}`,{method:'POST'})).ok}
+function save(forceCloud=false){
+    store.set('kids3d_save_'+(acc?acc.u:'guest'),JSON.stringify(st));
+    const now=Date.now();
+    if(acc&&!cloudBusy&&(forceCloud||now-lastCloudSync>15000)){
+        cloudBusy=true;lastCloudSync=now;
+        cSet(acc.u,acc.pw,st).then(ok=>{cloudOk=ok;updHUD()}).catch(()=>{cloudOk=false;updHUD()}).finally(()=>cloudBusy=false);
+    }
+}
+function load(){
+    const s=store.get('kids3d_acc');if(s)try{acc=JSON.parse(s)}catch{}
+    const raw=store.get('kids3d_save_'+(acc?acc.u:'guest'));if(raw)try{st={...defState,...JSON.parse(raw)}}catch{}
+    if(acc)cGet(acc.u).then(r=>{if(r?.pw===acc.pw&&r.data){st={...defState,...r.data};cloudOk=true;applySt()}}).catch(()=>{});
+}
+
+// 3D Bright Educational City
+let renderer,scene,camera,sun,pGrp,petGrp,cGrp,delivMesh,lArm,rArm,lLeg,rLeg,aura,deliv=null,actZone=null,curInterior=null,outPos={x:0,z:12},pddPenaltyCd=0;
+const cols=[],zones=[],wheels=[],npcs=[],tlLights=[],ARC={x:300,z:300},SHOP_INT={x:400,z:300},BANK_INT={x:400,z:400},
+addM=(p,g,m,x=0,y=0,z=0)=>{const o=new THREE.Mesh(g,m);o.position.set(x,y,z);p.add(o);return o};
+
+function makeTex(t){
+    const c=document.createElement('canvas');c.width=c.height=256;const x=c.getContext('2d');
+    if(t==='road'){
+        x.fillStyle='#334155';x.fillRect(0,0,256,256);
+        x.fillStyle='#facc15';x.fillRect(125,0,2,256);x.fillRect(129,0,2,256);
+        x.fillStyle='#ffffff';
+        for(let i=16;i<240;i+=32)x.fillRect(i,10,18,48);
+    }else if(t==='bld'){
+        x.fillStyle='#0284c7';x.fillRect(0,0,256,256);
+        for(let r=0;r<8;r++)for(let col=0;col<6;col++){
+            x.fillStyle=(r+col)%2?'#fef08a':'#bae6fd';x.fillRect(col*42+4,r*32+4,34,22);
+        }
+    }else if(t==='brick'){
+        x.fillStyle='#f97316';x.fillRect(0,0,256,256);
+        for(let y=0;y<256;y+=16){const o=(y/16)%2?16:0;for(let i=-16;i<256;i+=32){x.fillStyle=(i+y)%64?'#fb923c':'#ea580c';x.fillRect(i+o+1,y+1,30,14)}}
+        x.fillStyle='#fef9c3';x.fillRect(36,36,56,56);x.fillRect(164,36,56,56);
+    }else if(t==='wood'){
+        x.fillStyle='#b45309';x.fillRect(0,0,256,256);
+        for(let y=0;y<256;y+=16){x.fillStyle=y%32?'#d97706':'#b45309';x.fillRect(0,y,256,15)}
+    }else if(t==='grass'){
+        x.fillStyle='#22c55e';x.fillRect(0,0,256,256);
+        for(let i=0;i<2500;i++){x.fillStyle=Math.random()>.5?'#4ade80':'#16a34a';x.fillRect(Math.random()*256,Math.random()*256,3,4)}
+    }else{
+        x.fillStyle='#cbd5e1';x.fillRect(0,0,256,256);x.strokeStyle='#94a3b8';x.lineWidth=2;
+        for(let i=0;i<256;i+=32)for(let j=0;j<256;j+=32)x.strokeRect(i,j,32,32);
+    }
+    const tx=new THREE.CanvasTexture(c);tx.wrapS=tx.wrapT=THREE.RepeatWrapping;return tx;
+}
+
+function unstuck(){
+    if(violationLock)return toast('⚠️ Сначала ответь на вопрос инспектора!');
+    curInterior=null;phys.inCar=false;phys.cSpd=0;
+    if(pGrp){pGrp.visible=true;pGrp.position.set(0,0,12)}
+    if(cGrp){cGrp.position.set(6,0,12);cGrp.rotation.y=0}
+    st.pos={x:0,z:12};st.cPos={x:6,z:12,rot:0};
+    save();toast('🆘 Ты вернулся в Солнечный Парк (0, 12)');
+}
+
+function enterInterior(id,ix,iz,msg){
+    if(phys.inCar)return toast('⚠️ Сначала припаркуй и слезь с транспорта (F)');
+    if(!curInterior)outPos={x:pGrp.position.x,z:pGrp.position.z};
+    curInterior={id,cx:ix,cz:iz};pGrp.position.set(ix,0,iz+6);pGrp.rotation.y=Math.PI;toast(msg);
+}
+function exitInterior(){
+    curInterior=null;if(hit(outPos.x,outPos.z,.5))outPos={x:0,z:12};
+    pGrp.position.set(outPos.x,0,outPos.z);toast('☀️ Ты вышел на улицу города');
+}
+
+function buildInteriorRoom(id,cx,cz,wallCol,floorTex,furnFn){
+    addM(scene,new THREE.BoxGeometry(20,.2,18),new THREE.MeshStandardMaterial({map:floorTex}),cx,0,cz);
+    addM(scene,new THREE.BoxGeometry(20,.2,18),new THREE.MeshStandardMaterial({color:0x1e293b}),cx,4.8,cz);
+    const wm=new THREE.MeshStandardMaterial({color:wallCol});
+    [[20,4.8,.3,cx,2.4,cz-9],[20,4.8,.3,cx,2.4,cz+9],[.3,4.8,18,cx-10,2.4,cz],[.3,4.8,18,cx+10,2.4,cz]].forEach(([w,h,d,x,y,z])=>addM(scene,new THREE.BoxGeometry(w,h,d),wm,x,y,z));
+    addM(scene,new THREE.BoxGeometry(2.4,3,.2),new THREE.MeshBasicMaterial({color:0x4ade80}),cx,1.5,cz+8.8);
+    addZone(id+'_ex','🚪 Выйти в город',cx,cz+7.4,'#4ade80',exitInterior,id);
+    if(furnFn)furnFn(cx,cz);
+}
+
+function init3D(){
+    try{
+        if(typeof THREE==='undefined')throw new Error('No Three.js');
+        renderer=new THREE.WebGLRenderer({canvas:$('game-canvas'),antialias:true,powerPreference:'high-performance'});
+        renderer.setSize(window.innerWidth,window.innerHeight);renderer.setPixelRatio(Math.min(devicePixelRatio||1,1.75));
+        scene=new THREE.Scene();scene.background=new THREE.Color(0x38bdf8);scene.fog=new THREE.FogExp2(0x7dd3fc,.0032);
+        camera=new THREE.PerspectiveCamera(60,window.innerWidth/window.innerHeight,.2,380);
+        scene.add(new THREE.HemisphereLight(0xffffff,0x4ade80,1.0));
+        sun=new THREE.DirectionalLight(0xfffbeb,1.1);sun.position.set(70,120,50);scene.add(sun);
+
+        const tGrass=makeTex('grass'),tRoad=makeTex('road'),tBld=makeTex('bld'),tBrick=makeTex('brick'),tWood=makeTex('wood'),tTile=makeTex('tile');
+        tGrass.repeat.set(35,35);tRoad.repeat.set(1,16);tTile.repeat.set(16,16);tWood.repeat.set(6,6);
+        const g=addM(scene,new THREE.PlaneGeometry(450,450),new THREE.MeshStandardMaterial({map:tGrass}));g.rotation.x=-Math.PI/2;
+        [-120,-60,0,60,120].forEach(c=>{
+            const r1=addM(scene,new THREE.PlaneGeometry(14,300),new THREE.MeshStandardMaterial({map:tRoad}),c,.03,0);r1.rotation.x=-Math.PI/2;
+            const r2=addM(scene,new THREE.PlaneGeometry(14,300),new THREE.MeshStandardMaterial({map:tRoad}),0,.04,c);r2.rotation.x=-Math.PI/2;r2.rotation.z=Math.PI/2;
+            [-60,0,60].forEach(z=>{
+                addM(scene,new THREE.CylinderGeometry(.1,.1,4.5,6),new THREE.MeshStandardMaterial({color:0x1e293b}),c+7.5,2.25,z+7.5);
+                const sig=addM(scene,new THREE.SphereGeometry(.35,8,8),new THREE.MeshBasicMaterial({color:0x4ade80}),c+7.5,4.5,z+7.5);
+                tlLights.push(sig);
+            });
+        });
+
+        [-90,-30,30,90].forEach(bx=>[-90,-30,30,90].forEach(bz=>{
+            addM(scene,new THREE.BoxGeometry(44,.15,44),new THREE.MeshStandardMaterial({map:tTile}),bx,.07,bz);
+            if(bx===30&&bz===30){addBld(bx+4,bz+4,24,14,24,0xec4899,tBld);return}
+            addBld(bx-8,bz-8,16,20+Math.abs(bx+bz)%20,16,0,(bx+bz)%60===0?tBld:tBrick);
+            addBld(bx+9,bz+9,15,15+Math.abs(bx)%16,15,0,tBrick);
+        }));
+
+        // 3D Interiors
+        buildInteriorRoom('arcade',ARC.x,ARC.z,0x312e81,tTile,(cx,cz)=>{
+            [{x:cx-5,z:cz-5,c:0x4ade80,l:'🚦 Тренажёр ПДД',g:'pdd'},{x:cx,z:cz-5,c:0x38bdf8,l:'🛡️ Урок Безопасности',g:'street'},{x:cx+5,z:cz-5,c:0xfacc15,l:'🐷 Викторина Экономики',g:'econ'}].forEach(m=>{
+                addM(scene,new THREE.BoxGeometry(1.8,2.3,1.2),new THREE.MeshStandardMaterial({color:m.c}),m.x,1.15,m.z);
+                addZone('a_'+m.g,m.l,m.x,m.z+2,'#'+m.c.toString(16).padStart(6,'0'),()=>openM('quiz',m.g),'arcade');
+            });
+        });
+        buildInteriorRoom('shop',SHOP_INT.x,SHOP_INT.z,0x065f46,tTile,(cx,cz)=>{
+            [{x:cx-5,z:cz-5,c:0x4ade80,l:'👕 Примерочная Костюмов',t:'skins'},{x:cx,z:cz-5,c:0x38bdf8,l:'🐶 Зверята-Помощники',t:'pets'},{x:cx+5,z:cz-5,c:0xfbbf24,l:'🍎 Полезный Буфет',t:'items'}].forEach(m=>{
+                addM(scene,new THREE.BoxGeometry(2.4,1.2,1.2),new THREE.MeshStandardMaterial({color:m.c}),m.x,.6,m.z);
+                addZone('sh_'+m.t,m.l,m.x,m.z+2,'#'+m.c.toString(16).padStart(6,'0'),()=>openM('shop',m.t),'shop');
+            });
+        });
+        buildInteriorRoom('bank',BANK_INT.x,BANK_INT.z,0x78350f,tTile,(cx,cz)=>{
+            addM(scene,new THREE.BoxGeometry(8,1.2,1.4),new THREE.MeshStandardMaterial({color:0xfacc15}),cx,.6,cz-5);
+            addZone('bk_desk','🐷 Окошко Умной Копилки и Сбережений',cx,cz-3,'#facc15',()=>openM('bank'),'bank');
+        });
+        HOUSES.forEach(h=>{
+            buildInteriorRoom('house_'+h.id,h.ix,h.iz,0x1e293b,tWood,(cx,cz)=>{
+                addM(scene,new THREE.BoxGeometry(3.2,.7,2.2),new THREE.MeshStandardMaterial({color:h.col}),cx-5,.4,cz-5);
+                addZone(h.id+'_bed','🛏️ Отдохнуть дома (100% ⚡🛡️)',cx-5,cz-3,'#4ade80',()=>{st.energy=100;st.safety=100;st.hunger=Math.min(100,st.hunger+25);save();updHUD();toast('🛏️ Ты отлично отдохнул! Бодрость и Осторожность 100%')},'house_'+h.id);
+                addM(scene,new THREE.BoxGeometry(1.8,2.4,.8),new THREE.MeshStandardMaterial({color:0x0284c7}),cx+5,1.2,cz-5);
+                addZone(h.id+'_ward','🎒 Мой Гардероб',cx+5,cz-3,'#38bdf8',()=>openM('shop','skins'),'house_'+h.id);
+            });
+            addZone('door_'+h.id,`🏡 Войти в «${h.n}»`,h.x,h.z,'#'+h.col.toString(16).padStart(6,'0'),()=>{
+                if(!st.houses.includes(h.id))return openM('home');
+                st.house=h.id;enterInterior('house_'+h.id,h.ix,h.iz,`🏡 Добро пожаловать в «${h.n}»`);
+            });
+        });
+
+        // City Educational Zones
+        addZone('school','🚦 Войти в Академию ПДД и Правил',28,18,'#facc15',()=>enterInterior('arcade',ARC.x,ARC.z,'🚦 Добро пожаловать в Академию ПДД!'));
+        addZone('bank','🐷 Войти в Детский Банк «Умная Копилка»',-16,-16,'#fbbf24',()=>enterInterior('bank',BANK_INT.x,BANK_INT.z,'🐷 Ты вошёл в Детский Банк'));
+        addZone('jobs','🧹 Центр Добрых Дел и Помощи',-16,44,'#38bdf8',()=>openM('jobs'));
+        addZone('shop','🎒 Войти в Детский Мир и Буфет',16,-16,'#4ade80',()=>enterInterior('shop',SHOP_INT.x,SHOP_INT.z,'🎒 Ты вошёл в Детский Мир'));
+        addZone('home','🏡 Городок Домиков и Мечты',-44,16,'#14b8a6',()=>openM('home'));
+        addZone('eco','🌱 Эко-Станция (Сдать макулатуру +40 🪙)',44,-16,'#22c55e',()=>{st.cash+=40;st.score+=20;st.xp+=15;save();updHUD();toast('🌱 Молодец! Ты сдал макулатуру на переработку: +40 монет!')});
+
+        pGrp=new THREE.Group();petGrp=new THREE.Group();cGrp=new THREE.Group();scene.add(pGrp,petGrp,cGrp);
+        delivMesh=addM(scene,new THREE.OctahedronGeometry(1.2),new THREE.MeshBasicMaterial({color:0xfacc15,wireframe:true}));delivMesh.visible=false;
+
+        const npcList=[
+            {n:'Инспектор Светофоров',c:0xfacc15,t:'Совет ПДД: Переходи дорогу только по белой зебре на перекрёстках и только на зелёный свет!'},
+            {n:'Тётя Маша (Учительница)',c:0x38bdf8,t:'Совет по безопасности: Никогда не уходи с незнакомцами и не садись в чужие авто!'},
+            {n:'Дядя Фёдор (Банкир)',c:0x4ade80,t:'Совет по экономике: Откладывай 30% монет в Умную Копилку, чтобы быстрее купить мечту!'},
+            {n:'Эколог Алиса',c:0x10b981,t:'Совет по экологии: Выбрасывай фантики только в урну и береги деревья в парке!'},
+            {n:'Почтальон Печкин',c:0xf97316,t:'Совет по вежливости: Всегда говори «Спасибо» и «Пожалуйста», помогай старшим!'},
+            {n:'Тренер Артур',c:0xec4899,t:'Совет по транспорту: На велосипеде и самокате всегда надевай шлем и слезай перед зеброй!'}
+        ];
+        npcList.forEach((info,idx)=>{
+            const g=new THREE.Group(),cm=new THREE.MeshStandardMaterial({color:info.c}),pm=new THREE.MeshStandardMaterial({color:0x1e293b});
+            const ll=addM(g,new THREE.BoxGeometry(.16,.75,.18),pm,-.11,.38,0),rl=addM(g,new THREE.BoxGeometry(.16,.75,.18),pm,.11,.38,0);
+            addM(g,new THREE.BoxGeometry(.42,.58,.22),cm,0,1.05,0);
+            const la=addM(g,new THREE.BoxGeometry(.13,.52,.13),cm,-.29,1.05,0),ra=addM(g,new THREE.BoxGeometry(.13,.52,.13),cm,.29,1.05,0);
+            addM(g,new THREE.BoxGeometry(.22,.24,.22),new THREE.MeshStandardMaterial({color:0xf1c27d}),0,1.5,0);
+            const px=[-51,-9,9,51,-9,9][idx],pz=(idx-2)*28;
+            g.position.set(px,0,pz);scene.add(g);
+            npcs.push({g,ll,rl,la,ra,dir:idx%2?1:-1,spd:2.0,ph:idx,name:info.n,tip:info.t});
+        });
+
+        buildModels();spawnDeliv();
+    }catch(e){
+        use2D=true;$('game-canvas').style.display='none';$('fallback-2d').style.display='block';$('h-mode-tag').innerText='2D Карта';
+    }
+}
+function toggle2DFallback(){
+    if(!renderer)return toast('⚠️ Активен 2D-режим карты');
+    use2D=!use2D;$('game-canvas').style.display=use2D?'none':'block';$('fallback-2d').style.display=use2D?'block':'none';
+    $('h-mode-tag').innerText=use2D?'2D Карта':'3D Мир';
+}
+function addBld(x,z,w,h,d,em,t){
+    addM(scene,new THREE.BoxGeometry(w,h,d),new THREE.MeshStandardMaterial({map:t,emissive:em,emissiveIntensity:em?.2:0}),x,h/2,z);
+    cols.push({minX:x-w/2-.5,maxX:x+w/2+.5,minZ:z-d/2-.5,maxZ:z+d/2+.5});
+}
+function addZone(id,l,x,z,col,act,ind=null){
+    const r=addM(scene,new THREE.RingGeometry(1.4,2,20),new THREE.MeshBasicMaterial({color:col,side:THREE.DoubleSide}),x,.2,z);r.rotation.x=-Math.PI/2;
+    if(!ind)addM(scene,new THREE.CylinderGeometry(.15,.15,12,8),new THREE.MeshBasicMaterial({color:col,transparent:true,opacity:.4}),x,6,z);
+    zones.push({id,l,x,z,r:2.8,m:r,act,ind});
+}
+function buildModels(){
+    if(!pGrp)return;
+    pGrp.clear();aura=null;
+    const s=SKINS.find(x=>x.id===st.skin)||SKINS[0],sm=new THREE.MeshStandardMaterial({color:s.s}),cm=new THREE.MeshStandardMaterial({color:s.c}),pm=new THREE.MeshStandardMaterial({color:s.pt});
+    lLeg=addM(pGrp,new THREE.BoxGeometry(.16,.65,.18),pm,-.1,.33,0);rLeg=addM(pGrp,new THREE.BoxGeometry(.16,.65,.18),pm,.1,.33,0);
+    addM(pGrp,new THREE.BoxGeometry(.4,.52,.22),cm,0,.92,0);
+    lArm=addM(pGrp,new THREE.BoxGeometry(.12,.46,.12),cm,-.28,.92,0);rArm=addM(pGrp,new THREE.BoxGeometry(.12,.46,.12),cm,.28,.92,0);
+    addM(pGrp,new THREE.BoxGeometry(.24,.24,.24),sm,0,1.34,0);
+    if(s.acc==='cap')addM(pGrp,new THREE.BoxGeometry(.26,.09,.3),new THREE.MeshStandardMaterial({color:0xfacc15}),0,1.48,.03);
+    if(s.acc==='crown')addM(pGrp,new THREE.CylinderGeometry(.13,.11,.11,8),new THREE.MeshStandardMaterial({color:0xfacc15}),0,1.52,0);
+    if(s.acc==='visor')addM(pGrp,new THREE.BoxGeometry(.26,.06,.06),new THREE.MeshBasicMaterial({color:0x4ade80}),0,1.36,.12);
+    if(s.aura){aura=addM(pGrp,new THREE.RingGeometry(.4,.58,20),new THREE.MeshBasicMaterial({color:s.aura,side:THREE.DoubleSide}),0,.05,0);aura.rotation.x=-Math.PI/2}
+
+    petGrp.clear();petGrp.visible=!!st.pet;
+    if(st.pet){const p=PETS.find(x=>x.id===st.pet);addM(petGrp,new THREE.BoxGeometry(.32,.26,.44),new THREE.MeshStandardMaterial({color:p.c}),0,.2,0)}
+
+    cGrp.clear();wheels.length=0;
+    const v=CARS.find(x=>x.id===st.car)||CARS[0];
+    addM(cGrp,new THREE.BoxGeometry(.9,.35,2.2),new THREE.MeshStandardMaterial({color:st.carColor||v.c}),0,.45,0);
+    addM(cGrp,new THREE.BoxGeometry(.12,.7,.12),new THREE.MeshStandardMaterial({color:0x1e293b}),0,.85,.7);
+    const wg=new THREE.CylinderGeometry(.28,.28,.16,10);wg.rotateZ(Math.PI/2);const wm=new THREE.MeshStandardMaterial({color:0x111827});
+    [[0,.28,.75],[0,.28,-.75]].forEach(([wx,wy,wz])=>wheels.push(addM(cGrp,wg,wm,wx,wy,wz)));
+}
+function spawnDeliv(){
+    const pts=[{x:-75,z:-75,n:'Северную Библиотеку'},{x:75,z:-75,n:'Восточный Парк'},{x:-75,z:75,n:'Школу Искусств'},{x:75,z:75,n:'Южную Почту'}];
+    deliv=pts[Math.random()*pts.length|0];
+    if(delivMesh){delivMesh.position.set(deliv.x,2,deliv.z);delivMesh.visible=true}
+    $('q-text').innerText=`✉️ Отнеси письмо в «${deliv.n}» (переходи дорогу по зебре на зелёный!)`;
+}
+function applySt(){
+    buildModels();curInterior=null;
+    if(hit(st.pos.x,st.pos.z,.5))st.pos={x:0,z:12};
+    if(pGrp)pGrp.position.set(st.pos.x,0,st.pos.z);
+    if(cGrp){cGrp.position.set(st.cPos.x,0,st.cPos.z);cGrp.rotation.y=st.cPos.rot||0}
+    updHUD();
+}
+
+// Controls & Physics
+const keys={},joy={x:0,y:0,id:null};let camYaw=0,camPitch=.35,drag=false,pm={x:0,y:0},camTid=null,camPrev={x:0,y:0};
+window.addEventListener('keydown',e=>{if(['INPUT'].includes(document.activeElement?.tagName))return;keys[e.code]=true;if(e.code==='KeyE')doInteract();if(e.code==='KeyF')toggleCar()});
+window.addEventListener('keyup',e=>{keys[e.code]=false});
+const gc=$('game-canvas');
+gc.addEventListener('mousedown',e=>{drag=true;pm={x:e.clientX,y:e.clientY}});
+window.addEventListener('mouseup',()=>drag=false);
+window.addEventListener('mousemove',e=>{if(!drag)return;camYaw-=(e.clientX-pm.x)*.006;camPitch=Math.max(.1,Math.min(1.2,camPitch+(e.clientY-pm.y)*.006));pm={x:e.clientX,y:e.clientY}});
+gc.addEventListener('touchstart',e=>{if(camTid===null&&e.changedTouches.length){const t=e.changedTouches[0];camTid=t.identifier;camPrev={x:t.clientX,y:t.clientY}}},{passive:true});
+gc.addEventListener('touchmove',e=>{for(const t of e.changedTouches)if(t.identifier===camTid){camYaw-=(t.clientX-camPrev.x)*.008;camPitch=Math.max(.1,Math.min(1.2,camPitch+(t.clientY-camPrev.y)*.008));camPrev={x:t.clientX,y:t.clientY}}},{passive:true});
+gc.addEventListener('touchend',e=>{for(const t of e.changedTouches)if(t.identifier===camTid)camTid=null});
+
+const jz=$('joy'),js=$('stick');
+jz.addEventListener('touchstart',e=>{e.preventDefault();const t=e.changedTouches[0];joy.id=t.identifier;updJoy(t.clientX,t.clientY)},{passive:false});
+jz.addEventListener('touchmove',e=>{e.preventDefault();for(const t of e.changedTouches)if(t.identifier===joy.id)updJoy(t.clientX,t.clientY)},{passive:false});
+jz.addEventListener('touchend',e=>{for(const t of e.changedTouches)if(t.identifier===joy.id){joy.x=joy.y=0;joy.id=null;js.style.transform='translate(0,0)'}});
+function updJoy(cx,cy){const r=jz.getBoundingClientRect(),dx=cx-(r.left+58),dy=cy-(r.top+58),d=Math.min(35,Math.hypot(dx,dy)),a=Math.atan2(dy,dx);js.style.transform=`translate(${Math.cos(a)*d}px,${Math.sin(a)*d}px)`;joy.x=Math.cos(a)*(d/35);joy.y=-Math.sin(a)*(d/35)}
+
+const phys={inCar:false,vy:0,gnd:true,cSpd:0,walk:0};
+function toggleCar(){
+    if(violationLock)return toast('⚠️ Сначала ответь на вопрос инспектора!');
+    if(st.bikeLock)return toast('🔒 Транспорт на штрафстоянке! Сдай 1 экзамен в «Школе ПДД»');
+    if(curInterior)return toast('⚠️ В помещении нужно ходить пешком');
+    const p=pGrp?pGrp.position:st.pos,c=cGrp?cGrp.position:st.cPos;
+    if(phys.inCar){phys.inCar=false;if(pGrp){pGrp.visible=true;pGrp.position.set(c.x-1.5,0,c.z)}toast('🚶 Ты слез с транспорта')}
+    else if(Math.hypot(p.x-c.x,p.z-c.z)<4.0){phys.inCar=true;if(pGrp)pGrp.visible=false;toast('🚲 Не забудь: через зебру переходим пешком!')}
+    else toast('⚠️ Подойди ближе к своему транспорту');
+}
+function hit(nx,nz,r){
+    if(curInterior)return nx<curInterior.cx-8.8||nx>curInterior.cx+8.8||nz<curInterior.cz-7.8||nz>curInterior.cz+7.8;
+    return Math.abs(nx)>150||Math.abs(nz)>150||cols.some(c=>nx+r>c.minX&&nx-r<c.maxX&&nz+r>c.minZ&&nz-r<c.maxZ);
+}
+function step(dt){
+    if(violationLock)return;
+    st.hunger=Math.max(0,st.hunger-dt*.08);
+    if(pddPenaltyCd>0)pddPenaltyCd-=dt;
+
+    const fwd=Math.max(-1,Math.min(1,(keys.KeyW||keys.ArrowUp?1:0)-(keys.KeyS||keys.ArrowDown?1:0)+joy.y)),
+          trn=Math.max(-1,Math.min(1,(keys.KeyA||keys.ArrowLeft?1:0)-(keys.KeyD||keys.ArrowRight?1:0)-joy.x));
+    let kmh=0;
+
+    if(use2D){
+        const spd=phys.inCar?14:7;
+        if(fwd||trn){
+            st.pos.x=Math.max(-145,Math.min(145,st.pos.x-trn*spd*dt));st.pos.z=Math.max(-145,Math.min(145,st.pos.z-fwd*spd*dt));
+            if(phys.inCar){st.cPos.x=st.pos.x;st.cPos.z=st.pos.z}
+            st.distKm+=(spd*dt)/1000;kmh=spd*3.6;
+        }
+    }else if(!phys.inCar){
+        const sk=SKINS.find(x=>x.id===st.skin)||SKINS[0],spd=6.0*sk.spd;
+        if(trn)pGrp.rotation.y+=trn*2.8*dt;
+        if(Math.abs(fwd)>.02){
+            const dx=Math.sin(pGrp.rotation.y)*fwd*spd*dt,dz=Math.cos(pGrp.rotation.y)*fwd*spd*dt;
+            if(!hit(pGrp.position.x+dx,pGrp.position.z,.4))pGrp.position.x+=dx;
+            if(!hit(pGrp.position.x,pGrp.position.z+dz,.4))pGrp.position.z+=dz;
+            st.distKm+=Math.hypot(dx,dz)/1000;phys.walk+=dt*12;
+            lLeg.rotation.x=rArm.rotation.x=Math.sin(phys.walk)*.6;rLeg.rotation.x=lArm.rotation.x=-Math.sin(phys.walk)*.6;kmh=Math.abs(fwd*spd*3.6);
+        }else lLeg.rotation.x=rLeg.rotation.x=lArm.rotation.x=rArm.rotation.x=0;
+        if(keys.Space&&phys.gnd){phys.vy=5.2;phys.gnd=false}
+        phys.vy-=14.5*dt;pGrp.position.y+=phys.vy*dt;if(pGrp.position.y<=0){pGrp.position.y=0;phys.vy=0;phys.gnd=true}
+        if(petGrp.visible){petGrp.position.x+=(pGrp.position.x-.9-petGrp.position.x)*4*dt;petGrp.position.z+=(pGrp.position.z-.9-petGrp.position.z)*4*dt}
+        if(aura)aura.rotation.z+=dt*2;
+        const cd=curInterior?4.5:6.2;
+        camera.position.lerp(new THREE.Vector3(pGrp.position.x-Math.sin(pGrp.rotation.y+camYaw)*cd,pGrp.position.y+2.8+camPitch*2,pGrp.position.z-Math.cos(pGrp.rotation.y+camYaw)*cd),8*dt);
+        camera.lookAt(pGrp.position.x,pGrp.position.y+1.1,pGrp.position.z);
+    }else{
+        const v=CARS.find(x=>x.id===st.car)||CARS[0],ms=v.spd/3.6;
+        if(fwd>.02)phys.cSpd+=v.acc*.5*dt;else if(fwd<-.02)phys.cSpd-=v.acc*.6*dt;else phys.cSpd*=(1-1.6*dt);
+        if(keys.Space)phys.cSpd*=(1-6*dt);
+        phys.cSpd=Math.max(-ms*.35,Math.min(ms,phys.cSpd));
+        if(Math.abs(phys.cSpd)>.3)cGrp.rotation.y+=trn*2.2*(phys.cSpd>=0?1:-1)*dt;
+        const dx=Math.sin(cGrp.rotation.y)*phys.cSpd*dt,dz=Math.cos(cGrp.rotation.y)*phys.cSpd*dt;
+        if(!hit(cGrp.position.x+dx,cGrp.position.z+dz,.9)){cGrp.position.x+=dx;cGrp.position.z+=dz;st.distKm+=Math.hypot(dx,dz)/1000}else phys.cSpd*=-.3;
+        wheels.forEach(w=>w.rotation.x+=(phys.cSpd*dt)/.28);pGrp.position.copy(cGrp.position);kmh=Math.abs(phys.cSpd*3.6);
+        camera.position.lerp(new THREE.Vector3(cGrp.position.x-Math.sin(cGrp.rotation.y+camYaw)*7.5,cGrp.position.y+3.5+camPitch*2.5,cGrp.position.z-Math.cos(cGrp.rotation.y+camYaw)*7.5),8*dt);
+        camera.lookAt(cGrp.position.x,cGrp.position.y+1.0,cGrp.position.z);
+    }
+
+    if(!use2D){
+        npcs.forEach(n=>{
+            n.g.position.z+=n.dir*n.spd*dt;
+            if(Math.abs(n.g.position.z)>135){n.dir*=-1;n.g.rotation.y=n.dir>0?0:Math.PI}
+            n.ph+=dt*7;n.ll.rotation.x=n.ra.rotation.x=Math.sin(n.ph)*.45;n.rl.rotation.x=n.la.rotation.x=-Math.sin(n.ph)*.45;
+            if(phys.inCar&&Math.hypot(cGrp.position.x-n.g.position.x,cGrp.position.z-n.g.position.z)<1.8&&pddPenaltyCd<=0){
+                pddPenaltyCd=8;triggerViolation('bump_ped');
+            }
+        });
+        if(!curInterior){st.pos={x:pGrp.position.x,z:pGrp.position.z};st.cPos={x:cGrp.position.x,z:cGrp.position.z,rot:cGrp.rotation.y}}
+    }
+
+    // Active PDD Rule Enforcement (Red Light, Jaywalking, Riding across Zebra)
+    if(!curInterior&&pddPenaltyCd<=0){
+        const roads=[-120,-60,0,60,120];
+        const onXRoad=roads.some(r=>Math.abs(st.pos.x-r)<5.2),onZRoad=roads.some(r=>Math.abs(st.pos.z-r)<5.2);
+        const atCrosswalk=roads.some(rx=>roads.some(rz=>Math.hypot(st.pos.x-rx,st.pos.z-rz)<11));
+        if((onXRoad||onZRoad)&&!phys.inCar){
+            if(!atCrosswalk){pddPenaltyCd=9;return triggerViolation('jaywalk')}
+            if(tlPhase==='red'){pddPenaltyCd=9;return triggerViolation('red_light')}
+        }else if(atCrosswalk&&phys.inCar&&Math.abs(phys.cSpd)>2){
+            pddPenaltyCd=9;return triggerViolation('bike_zebra');
+        }
+    }
+
+    const pos=curInterior?pGrp.position:st.pos;
+    actZone=zones.find(z=>z.ind===(curInterior?curInterior.id:null)&&Math.hypot(pos.x-z.x,pos.z-z.z)<z.r)||null;
+    const nearPed=!use2D&&!curInterior&&!phys.inCar?npcs.find(n=>Math.hypot(pos.x-n.g.position.x,pos.z-n.g.position.z)<2.6):null;
+    const pr=$('prompt');
+    if(actZone){pr.style.display='flex';$('p-txt').innerText=actZone.l}
+    else if(nearPed){pr.style.display='flex';$('p-txt').innerText=`💬 Спросить совет: ${nearPed.name}`;actZone={act:()=>{st.score+=5;updHUD();toast(`💬 ${nearPed.name}: «${nearPed.tip}» (+5 значков)`)}}}
+    else if(!curInterior&&!phys.inCar&&Math.hypot(pos.x-st.cPos.x,pos.z-st.cPos.z)<4.0){pr.style.display='flex';$('p-txt').innerText=st.bikeLock?'🔒 Транспорт на штрафстоянке (сдай ПДД)':'Сесть на транспорт (F)';actZone={act:toggleCar}}
+    else pr.style.display='none';
+
+    if(!curInterior&&deliv&&Math.hypot(pos.x-deliv.x,pos.z-deliv.z)<4.5){
+        const rew=Math.round(90*(st.pet==='owl'?1.25:1));st.cash+=rew;st.score+=Math.round(25*(st.pet==='puppy'?1.15:1));st.xp+=20;save();toast(`✉️ Письмо доставлено! +${rew} монет и +25 значков!`);spawnDeliv();
+    }
+    const q=QUESTS[st.qIdx];
+    if(q&&q.chk()){st.cash+=q.rew;st.xp+=q.xp;st.qIdx++;if(q.skin&&!st.skins.includes(q.skin))st.skins.push(q.skin);save();toast(`🏅 Задание выполнено! Награда: +${q.rew} монет!`)}
+
+    $('h-spd').innerText=kmh.toFixed(1);
+}
+function doInteract(){if(actZone?.act)actZone.act()}
+
+// Radar & 2D Fallback
+const mCtx=$('minimap').getContext('2d'),fCtx=$('fallback-2d').getContext('2d');
+function drawRadar(){
+    mCtx.fillStyle='#0f172a';mCtx.fillRect(0,0,118,118);mCtx.save();mCtx.translate(59,59);
+    const pos=curInterior?pGrp.position:st.pos,sc=.45;
+    if(!curInterior){
+        mCtx.strokeStyle='#334155';mCtx.lineWidth=5;
+        [-120,-60,0,60,120].forEach(c=>{mCtx.beginPath();mCtx.moveTo((c-pos.x)*sc,-140);mCtx.lineTo((c-pos.x)*sc,140);mCtx.stroke();mCtx.beginPath();mCtx.moveTo(-140,(c-pos.z)*sc);mCtx.lineTo(140,(c-pos.z)*sc);mCtx.stroke()});
+        zones.filter(z=>!z.ind).forEach(z=>{mCtx.fillStyle=z.m.material.color.getStyle();mCtx.beginPath();mCtx.arc((z.x-pos.x)*sc,(z.z-pos.z)*sc,3.8,0,Math.PI*2);mCtx.fill()});
+        if(deliv){
+            mCtx.strokeStyle='#fde047';mCtx.lineWidth=2;mCtx.setLineDash([4,3]);mCtx.beginPath();mCtx.moveTo(0,0);mCtx.lineTo((deliv.x-pos.x)*sc,(deliv.z-pos.z)*sc);mCtx.stroke();mCtx.setLineDash([]);
+            mCtx.fillStyle='#fde047';mCtx.beginPath();mCtx.arc((deliv.x-pos.x)*sc,(deliv.z-pos.z)*sc,4.5,0,Math.PI*2);mCtx.fill();
+        }
+    }
+    mCtx.fillStyle='#38bdf8';mCtx.beginPath();mCtx.arc(0,0,4,0,Math.PI*2);mCtx.fill();mCtx.restore();
+
+    if(use2D){
+        const c=$('fallback-2d');c.width=window.innerWidth;c.height=window.innerHeight;
+        fCtx.fillStyle='#86efac';fCtx.fillRect(0,0,c.width,c.height);
+        fCtx.save();fCtx.translate(c.width/2-st.pos.x*3,c.height/2-st.pos.z*3);
+        fCtx.strokeStyle='#475569';fCtx.lineWidth=42;
+        [-120,-60,0,60,120].forEach(v=>{fCtx.beginPath();fCtx.moveTo(v*3,-450);fCtx.lineTo(v*3,450);fCtx.stroke();fCtx.beginPath();fCtx.moveTo(-450,v*3);fCtx.lineTo(450,v*3);fCtx.stroke()});
+        zones.filter(z=>!z.ind).forEach(z=>{fCtx.fillStyle='#0284c7';fCtx.beginPath();fCtx.arc(z.x*3,z.z*3,12,0,Math.PI*2);fCtx.fill();fCtx.fillStyle='#0f172a';fCtx.font='bold 12px sans-serif';fCtx.fillText(z.l,z.x*3-30,z.z*3-16)});
+        fCtx.fillStyle='#facc15';fCtx.beginPath();fCtx.arc(st.pos.x*3,st.pos.z*3,9,0,Math.PI*2);fCtx.fill();
+        fCtx.restore();
+    }
+}
+function updHUD(){
+    $('h-cash').innerText=Math.floor(st.cash)+' 🪙';
+    $('h-bank').innerText=Math.floor(st.bank)+' 🪙';
+    const tot=Math.floor(st.cash+st.bank);
+    $('h-goal').innerText=`${tot} / ${st.goal} 🪙`;
+    $('h-lvl').innerText=`${st.score} (Ур. ${Math.floor(st.score/150)+1})`;
+    $('h-hp').innerText=Math.round(st.safety)+'%';$('b-hp').style.width=st.safety+'%';
+    $('h-en').innerText=Math.round(st.energy)+'%';$('b-en').style.width=st.energy+'%';
+    $('h-hu').innerText=Math.round(st.hunger)+'%';$('b-hu').style.width=st.hunger+'%';
+    $('h-warn').innerText=`${st.warnings} / 3`+(st.bikeLock?' (🔒 Транспорт)':'');
+    $('h-job').innerText=(JOBS.find(j=>j.id===st.jobId)||JOBS[0]).t;
+    $('h-acc').innerText=acc?`👤 ${acc.u} (${cloudOk?'☁️':'💾'})`:'👤 Профиль';
+}
+function toast(m){const d=document.createElement('div');d.className='toast';d.innerText=m;$('toasts').appendChild(d);setTimeout(()=>d.remove(),3600)}
+
+// Modals: School of PDD & Rules, Smart Piggy Bank, Jobs, Wardrobe, Home, Brain Games
+let curM=null,qSub='pdd',qIdx=0,qScore=0;
+function openM(m,sub){
+    if(violationLock)return;
+    curM=m;$('m-bg').style.display='flex';$('m-close').style.display='block';
+    const titles={quiz:'🚦 Школа ПДД, Безопасности и Экономики',jobs:'🧹 Центр Добрых Дел (Профессии)',bank:'🐷 Умная Копилка и Финансовая Цель',shop:'🎒 Детский Мир: Костюмы, Зверята и Транспорт',home:'🏡 Городок Домиков (3D-интерьеры)',arcade:'🧩 Игротека Ума (Загадки и Логика)',promo:'🎁 Бонус-коды',inv:'🍎 Рюкзак',top:'🏆 Доска Почёта и Облачный Профиль',acc:'👤 Облачный Профиль'};
+    const handlers={quiz:()=>{qSub=sub||'pdd';qIdx=0;qScore=0;renderQuiz()},jobs:renderJobs,bank:renderBank,shop:()=>renderShop(sub||'skins'),home:renderHome,arcade:renderArcade,promo:renderPromo,inv:renderInv,top:renderTop,acc:renderTop};
+    $('m-title').innerText=titles[m]||'Меню';
+    if(handlers[m])handlers[m]();
+}
+function closeM(){curM=null;$('m-bg').style.display='none'}
+
+function renderQuiz(){
+    const nav=`<div style="display:flex;gap:5px;flex-wrap:wrap">
+        <button class="btn ${qSub==='pdd'?'b-ok':''}" onclick="qSub='pdd';qIdx=0;qScore=0;renderQuiz()">🚦 ПДД ${st.pddPassed.includes('pdd')?'✅':''}</button>
+        <button class="btn ${qSub==='street'?'b-ok':''}" onclick="qSub='street';qIdx=0;qScore=0;renderQuiz()">🛡️ Улица ${st.pddPassed.includes('street')?'✅':''}</button>
+        <button class="btn ${qSub==='econ'?'b-ok':''}" onclick="qSub='econ';qIdx=0;qScore=0;renderQuiz()">🐷 Экономика ${st.pddPassed.includes('econ')?'✅':''}</button>
+        <button class="btn ${qSub==='eco'?'b-ok':''}" onclick="qSub='eco';qIdx=0;qScore=0;renderQuiz()">🌱 Экология ${st.pddPassed.includes('eco')?'✅':''}</button>
+    </div>`;
+    const L=LESSONS[qSub];
+    if(qIdx>=L.qs.length){
+        const passed=qScore>=L.qs.length-1;
+        if(passed){
+            if(!st.pddPassed.includes(qSub)){st.pddPassed.push(qSub);st.cash+=100;st.score+=50;st.xp+=30}
+            st.safety=100;st.warnings=0;
+            if(st.bikeLock){st.bikeLock=false;toast('🔓 Отлично! Ключи от транспорта возвращены со штрафстоянки!')}
+            save();updHUD();
+        }
+        $('m-body').innerHTML=`${nav}<div class="card act" style="text-align:center">
+            <h4>${passed?'🎉 Экзамен сдан на отлично!':'📚 Попробуй ещё раз!'}</h4>
+            <p>Правильных ответов: <b>${qScore} из ${L.qs.length}</b></p>
+            <p style="color:#4ade80">${passed?'Награда: +100 монет, 100% Осторожности и снятие всех предупреждений!':'Повтори правило выше и пройди тест снова.'}</p>
+            <button class="btn b-warn" onclick="qIdx=0;qScore=0;renderQuiz()">Пройти снова</button>
+        </div>`;return;
+    }
+    const item=L.qs[qIdx];
+    $('m-body').innerHTML=`${nav}
+        <div class="card" style="border-color:#fde047"><h4>📖 Памятка: ${L.title}</h4><p>${L.rule}</p></div>
+        <div class="card act"><h4>Вопрос ${qIdx+1} из ${L.qs.length}: ${item.q}</h4>
+        <div style="display:flex;flex-direction:column;gap:6px;margin-top:6px">
+            ${item.opts.map((o,i)=>`<button class="btn" style="text-align:left;padding:9px 12px" onclick="ansQuiz(${i})">${i+1}. ${o}</button>`).join('')}
+        </div></div>`;
+}
+function ansQuiz(i){
+    const item=LESSONS[qSub].qs[qIdx];
+    if(i===item.ok){qScore++;toast('✅ Верно! '+item.exp)}
+    else toast('💡 Запомни: '+item.exp);
+    qIdx++;renderQuiz();
+}
+
+function renderJobs(){
+    const j=JOBS.find(x=>x.id===st.jobId)||JOBS[0],q=QUESTS[st.qIdx];
+    $('m-body').innerHTML=`
+        <div class="card act"><h4>Твоя роль: ${j.t} (Опыт: ${st.xp} XP)</h4>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">${j.id!=='student'?`<button class="btn b-ok" onclick="work()">⚡ Выполнить задание (+${j.pay} 🪙)</button>`:''}<button class="btn b-warn" onclick="closeM();spawnDeliv()">✉️ Взять письмо на доставку</button></div></div>
+        ${q?`<div class="card"><h4>🌟 Главное задание: ${q.t}</h4><p>Награда: +${q.rew} монет и +${q.xp} опыта</p></div>`:''}
+        <div class="grid">${JOBS.filter(x=>x.id!=='student').map(x=>`<div class="card"><h4>${x.t}</h4><p>${x.d}</p><div style="color:#4ade80;font-weight:700">+${x.pay} 🪙 (нужно ${x.xp} XP)</div><button class="btn b-ok" ${st.jobId===x.id||st.xp<x.xp?'disabled':''} onclick="st.jobId='${x.id}';save();updHUD();renderJobs()">${st.jobId===x.id?'Выбрано':'Стать помощником'}</button></div>`).join('')}</div>`;
+}
+function work(){
+    const j=JOBS.find(x=>x.id===st.jobId);if(!j||st.energy<j.en)return toast('🍎 Ты устал! Перекуси яблоком или отдохни в домике');
+    const sk=SKINS.find(x=>x.id===st.skin)||SKINS[0],earn=Math.round(j.pay*sk.pay*(st.pet==='owl'?1.25:1));
+    st.energy-=j.en;st.cash+=earn;st.xp+=20;st.score+=Math.round(25*(st.pet==='puppy'?1.15:1));save();updHUD();renderJobs();toast(`🌟 Отличная работа! Получено +${earn} монет!`);
+}
+
+function renderBank(){
+    const tot=Math.floor(st.cash+st.bank),pct=Math.min(100,Math.round((tot/st.goal)*100));
+    $('m-body').innerHTML=`
+        <div class="card act"><h4>🎯 Финансовая Цель: ${st.goalName} (${tot} / ${st.goal} 🪙 — ${pct}%)</h4>
+        <div class="bar" style="height:10px;margin:4px 0"><div class="fill" style="background:#fde047;width:${pct}%"></div></div>
+        <p>Совет: деньги на Сберсчёте растут сами (+0.5% каждую минуту) и помогают быстрее накопить на мечту!</p></div>
+        <div class="grid"><div class="card"><h4>🪙 В кошельке</h4><div style="color:#4ade80;font-size:18px;font-weight:800">${Math.floor(st.cash)} монет</div></div>
+        <div class="card"><h4>🐷 На Сберсчёте (+%)</h4><div style="color:#fde047;font-size:18px;font-weight:800">${Math.floor(st.bank)} монет</div></div></div>
+        <div class="card" style="flex-direction:row;flex-wrap:wrap;align-items:center"><input type="number" id="b-v" value="50"><button class="btn b-ok" onclick="bOp('in')">Положить в копилку</button><button class="btn b-warn" onclick="bOp('out')">Взять в кошелёк</button></div>`;
+}
+function bOp(op){
+    const v=Math.floor(Number($('b-v').value));
+    if(op==='in'&&v>0&&st.cash>=v){st.cash-=v;st.bank+=v;toast(`🐷 Отложено +${v} монет в копилку!`)}
+    else if(op==='out'&&v>0&&st.bank>=v){st.bank-=v;st.cash+=v}
+    else return toast('⚠️ Проверь сумму монет');
+    save();updHUD();renderBank();
+}
+
+function renderShop(tab){
+    const nav=`<div style="display:flex;gap:5px;flex-wrap:wrap"><button class="btn ${tab==='skins'?'b-ok':''}" onclick="renderShop('skins')">👕 Костюмы (${st.skins.length}/${SKINS.length})</button><button class="btn ${tab==='pets'?'b-ok':''}" onclick="renderShop('pets')">🐶 Зверята</button><button class="btn ${tab==='cars'?'b-ok':''}" onclick="renderShop('cars')">🚲 Эко-Транспорт</button><button class="btn ${tab==='items'?'b-ok':''}" onclick="renderShop('items')">🍎 Полезный Буфет</button></div>`;
+    let html='';
+    if(tab==='skins')html=SKINS.map(s=>{const own=st.skins.includes(s.id),act=st.skin===s.id;return `<div class="card ${act?'act':''}"><h4>${s.n} [${s.r}]</h4><p>Скорость x${s.spd} | Награда x${s.pay}</p><div style="color:#4ade80;font-weight:700">${own?'В гардеробе':(s.p<0?'За 3 теста ПДД':s.p+' 🪙')}</div>${act?'<button class="btn" disabled>Надето</button>':own?`<button class="btn" onclick="st.skin='${s.id}';buildModels();save();renderShop('skins')">Надеть</button>`:s.p<0?'<button class="btn b-warn" onclick="openM(\'quiz\',\'pdd\')">Сдать ПДД</button>':`<button class="btn b-ok" onclick="buy('skin','${s.id}')">Купить</button>`}</div>`}).join('');
+    else if(tab==='pets')html=PETS.map(p=>{const own=st.pets.includes(p.id),act=st.pet===p.id;return `<div class="card ${act?'act':''}"><h4>${p.n}</h4><p>${p.b}</p><div style="color:#4ade80;font-weight:700">${own?'Друг с тобой':p.p+' 🪙'}</div>${act?'<button class="btn" disabled>Рядом</button>':own?`<button class="btn" onclick="st.pet='${p.id}';buildModels();save();renderShop('pets')">Позвать</button>`:`<button class="btn b-ok" onclick="buy('pet','${p.id}')">Приютить</button>`}</div>`}).join('');
+    else if(tab==='cars')html=CARS.map(v=>{const own=st.cars.includes(v.id),act=st.car===v.id;return `<div class="card ${act?'act':''}"><h4>${v.n}</h4><p>Скорость: ${v.spd} км/ч</p><div style="color:#4ade80;font-weight:700">${own?'В гараже':v.p+' 🪙'}</div>${act?'<button class="btn" disabled>Выбрано</button>':own?`<button class="btn" onclick="st.car='${v.id}';buildModels();save();renderShop('cars')">Выбрать</button>`:`<button class="btn b-ok" onclick="buy('car','${v.id}')">Купить</button>`}</div>`}).join('');
+    else html=ITEMS.map(i=>`<div class="card"><h4>${i.n}</h4><p>${i.d}</p><div style="color:#4ade80;font-weight:700">${i.p} 🪙</div><button class="btn b-ok" onclick="buy('item','${i.id}')">Купить</button></div>`).join('');
+    $('m-body').innerHTML=`${nav}<div class="grid">${html}</div>`;
+}
+function buy(t,id){
+    if(t==='item'){const i=ITEMS.find(x=>x.id===id);if(st.cash<i.p)return toast('⚠️ Не хватает монет в кошельке');st.cash-=i.p;const ex=st.inv.find(x=>x.id===id);if(ex)ex.cnt++;else st.inv.push({...i,cnt:1});save();updHUD();return toast(`🍎 Куплено: ${i.n}`)}
+    const cfg={skin:[SKINS,'skins','skin',40,'skins'],pet:[PETS,'pets','pet',60,'pets'],car:[CARS,'cars','car',80,'cars']}[t],it=cfg[0].find(x=>x.id===id);
+    if(st.cash<it.p)return toast('⚠️ Не хватает монет! Накопи в Умной Копилке');st.cash-=it.p;st[cfg[1]].push(id);st[cfg[2]]=id;st.score+=cfg[3];buildModels();save();updHUD();renderShop(cfg[4]);toast(`🎉 Поздравляем с покупкой: ${it.n}!`);
+}
+
+function tpToHouse(id){
+    const h=HOUSES.find(x=>x.id===id);if(!h)return;
+    closeM();if(use2D){st.pos.x=h.x;st.pos.z=h.z;return toast(`🏡 Телепорт к «${h.n}»`)}
+    st.house=h.id;enterInterior('house_'+h.id,h.ix,h.iz,`🏡 Добро пожаловать в твой «${h.n}»!`);
+}
+function renderHome(){
+    $('m-body').innerHTML=`<div class="grid">${HOUSES.map(h=>{const own=st.houses.includes(h.id);return `<div class="card ${st.house===h.id?'act':''}"><h4>${h.n}</h4><p>${h.b}</p><div style="color:#4ade80;font-weight:700">${own?'Твой домик':h.p+' 🪙'}</div>${own?`<button class="btn b-ok" onclick="tpToHouse('${h.id}')">🚪 Войти в 3D-Домик</button>`:`<button class="btn b-ok" onclick="if(st.cash<${h.p})return toast('⚠️ Не хватает монет');st.cash-=${h.p};st.houses.push('${h.id}');st.house='${h.id}';save();updHUD();renderHome();toast('🎉 Домик куплен!')">Купить домик</button>`}</div>`}).join('')}</div>`;
+}
+
+// Educational Math & Logic Mini-Game
+let mathA=4,mathB=5;
+function newMath(){mathA=2+(Math.random()*9|0);mathB=2+(Math.random()*9|0)}
+function renderArcade(){
+    newMath();
+    $('m-body').innerHTML=`
+        <div class="card act" style="align-items:center;text-align:center">
+            <h4>🧩 Математический Тренажёр Ума</h4>
+            <p>Решай примеры правильно и получай монеты и значки!</p>
+            <div style="font-size:28px;font-weight:900;color:#fde047;margin:10px">${mathA} + ${mathB} = ?</div>
+            <div style="display:flex;gap:8px"><input type="number" id="m-ans" placeholder="Ответ..." style="width:120px;text-align:center"><button class="btn b-ok" onclick="chkMath()">Проверить</button></div>
+        </div>`;
+}
+function chkMath(){
+    const v=Number($('m-ans')?.value);
+    if(v===mathA+mathB){st.cash+=25;st.score+=15;save();updHUD();toast('🎉 Правильно! +25 монет и +15 значков!');renderArcade()}
+    else toast('🤔 Попробуй посчитать ещё раз!');
+}
+
+function renderPromo(){
+    $('m-body').innerHTML=`
+        <div class="card act"><h4>Ввод бонус-кода</h4><div style="display:flex;gap:6px"><input id="pr-in" placeholder="Введи код..." style="flex:1;text-transform:uppercase"><button class="btn b-pink" onclick="usePromo()">Получить</button></div></div>
+        <div class="grid">${Object.entries(PROMOS).map(([k,v])=>`<div class="card"><h4>${k}</h4><p>${v.d}</p><button class="btn" onclick="$('pr-in').value='${k}'">Подставить</button></div>`).join('')}</div>`;
+}
+function usePromo(){
+    const c=($('pr-in')?.value||'').trim().toUpperCase();if(!c)return;
+    if(st.promos.includes(c))return toast('⚠️ Этот код уже использован');
+    const r=PROMOS[c];if(!r)return toast('❌ Неверный код');
+    st.promos.push(c);if(r.cash)st.cash+=r.cash;if(r.score)st.score+=r.score;if(r.xp)st.xp+=r.xp;
+    if(r.skin){if(!st.skins.includes(r.skin))st.skins.push(r.skin);st.skin=r.skin;buildModels()}
+    save(true);updHUD();renderPromo();toast(`🎁 Бонус ${c} получен!`);
+}
+
+function renderInv(){
+    $('m-body').innerHTML=`
+        <div class="grid">${st.inv.map((i,idx)=>`<div class="card"><h4>${i.n} (x${i.cnt})</h4><p>${i.d}</p><button class="btn b-ok" onclick="useIt(${idx})">Использовать</button></div>`).join('')||'<p>Рюкзак пуст</p>'}</div>
+        <div style="display:flex;gap:8px;justify-content:space-between;border-top:1px solid #334155;padding-top:8px">
+            <button class="btn" onclick="save(true);toast('💾 Прогресс сохранён')">💾 Сохранить</button>
+            <button class="btn b-red" onclick="st=JSON.parse(JSON.stringify(defState));save(true);applySt();closeM()">🗑️ Начать заново</button>
+        </div>`;
+}
+function useIt(idx){
+    const i=st.inv[idx];if(!i)return;
+    if(i.sf)st.safety=Math.min(100,st.safety+i.sf);
+    if(i.en)st.energy=Math.min(100,st.energy+Math.round(i.en*(st.pet==='kitten'?1.2:1)));
+    if(i.hu)st.hunger=Math.min(100,st.hunger+i.hu);
+    if(--i.cnt<=0)st.inv.splice(idx,1);
+    save();updHUD();renderInv();toast('✨ Использовано!');
+}
+
+function renderTop(){
+    const leaders=[
+        {n:acc?acc.u:'Ты (Ученик)',s:st.score,p:st.pddPassed.length,me:true},
+        {n:'Алиса_Умница',s:850,p:4},{n:'Артём_ПДД',s:640,p:3},{n:'София_Эко',s:490,p:3},{n:'Максим_2026',s:320,p:2}
+    ].sort((a,b)=>b.s-a.s);
+    $('m-body').innerHTML=`
+        <div class="card act"><h4>☁️ Облачный профиль ученика (${acc?'Вход: '+acc.u:'Локальный режим'})</h4>
+        ${acc?`<div style="display:flex;gap:8px"><button class="btn b-ok" onclick="save(true);toast('☁️ Сохранено в облако')">☁️ Сохранить в облако</button><button class="btn b-red" onclick="acc=null;store.del('kids3d_acc');updHUD();renderTop()">Выйти</button></div>`
+        :`<div style="display:flex;gap:6px;flex-wrap:wrap"><input id="au" placeholder="Имя (лат.)"><input id="ap" type="password" placeholder="Пароль"><button class="btn b-ok" onclick="auth('r')">Создать профиль</button><button class="btn" onclick="auth('l')">Войти</button></div>`}
+        </div>
+        <div class="card"><h4>🏆 Доска Почёта Знатоков Правил</h4>
+        ${leaders.map((x,i)=>`<div class="row" style="padding:5px 0;border-bottom:1px solid #334155;color:${x.me?'#fde047':'#fff'}"><span>#${i+1} ${x.n} (Экзаменов: ${x.p}/4)</span><span>${x.s} 🏅</span></div>`).join('')}</div>`;
+}
+async function auth(m){
+    const u=$('au').value.trim(),pw=$('ap').value;if(u.length<3||pw.length<4)return toast('⚠️ Минимум 3 буквы имя и 4 пароль');
+    try{
+        const ex=await cGet(u);
+        if(m==='r'){if(ex)return toast('⚠️ Имя уже занято');await cSet(u,pw,st);cloudOk=true}
+        else{if(!ex||ex.pw!==pw)return toast('❌ Неверное имя или пароль');st={...defState,...ex.data};applySt();cloudOk=true}
+    }catch{cloudOk=false}
+    acc={u,pw};store.set('kids3d_acc',JSON.stringify(acc));save(true);updHUD();renderTop();toast(`🎉 Привет, ${u}!`);
+}
+
+let last=performance.now(),radT=0;
+function loop(now){
+    requestAnimationFrame(loop);
+    const dt=Math.min(.05,(now-last)/1000);last=now;
+    step(dt);
+    if(++radT%3===0)drawRadar();
+    if(!use2D&&renderer)renderer.render(scene,camera);
+}
+window.addEventListener('resize',()=>{if(!renderer)return;camera.aspect=window.innerWidth/window.innerHeight;camera.updateProjectionMatrix();renderer.setSize(window.innerWidth,window.innerHeight)});
+
+load();init3D();applySt();setInterval(()=>save(),15000);requestAnimationFrame(loop);
+</script>
+</body>
+</html>
